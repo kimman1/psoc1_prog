@@ -49,7 +49,8 @@ public class PSoC1Prog : IDisposable
         _serial.Open();
 
         // Send newline and wait for prompt
-        _serial.WriteLine("");
+        // NOTE: must send \n only, NOT \r\n. Arduino doesn't handle \r and would print "invalid"
+        _serial.Write("\n");
         _serial.ReadTo("> ");
 
         // Self-test: write 64 random bytes, read back, compare
@@ -222,8 +223,11 @@ public class PSoC1Prog : IDisposable
         if (verifyRead)
         {
             logger?.Invoke("Đang đọc lại để xác minh...");
-            var memData = ReadMemory();
-            if (!memData.AsSpan().SequenceEqual(hex.Program))
+            // Read only the blocks we actually wrote
+            int blocksToRead = (hex.Program.Length + 63) / 64;
+            var memData = ReadMemory(blocksToRead);
+            if (memData.Length < hex.Program.Length ||
+                !memData.AsSpan(0, hex.Program.Length).SequenceEqual(hex.Program))
                 throw new InvalidOperationException("Chương trình ghi vào không khớp với dữ liệu trên thiết bị!");
         }
 
