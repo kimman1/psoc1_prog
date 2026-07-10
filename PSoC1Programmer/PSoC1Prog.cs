@@ -65,13 +65,29 @@ public class PSoC1Prog : IDisposable
         }
     }
 
+    /// <summary>
+    /// Read exactly <paramref name="count"/> bytes from serial, looping until all are received.
+    /// </summary>
+    private void ReadExactly(byte[] buffer, int offset, int count)
+    {
+        int totalRead = 0;
+        while (totalRead < count)
+        {
+            int read = _serial.Read(buffer, offset + totalRead, count - totalRead);
+            if (read == 0)
+                throw new InvalidOperationException(
+                    $"Serial timeout: expected {count} bytes, got {totalRead}");
+            totalRead += read;
+        }
+    }
+
     private void Wait()
     {
         var buf = new byte[4];
-        int read = _serial.Read(buf, 0, 4);
-        if (read != 4 || buf[0] != '\r' || buf[1] != '\n' || buf[2] != '>' || buf[3] != ' ')
+        ReadExactly(buf, 0, 4);
+        if (buf[0] != '\r' || buf[1] != '\n' || buf[2] != '>' || buf[3] != ' ')
             throw new InvalidOperationException(
-                $"Programmer returned unexpected result: {Convert.ToHexString(buf[..read])}");
+                $"Programmer returned unexpected result: {Convert.ToHexString(buf)}");
     }
 
     public void Reinitialise()
@@ -90,7 +106,7 @@ public class PSoC1Prog : IDisposable
     {
         _serial.Write("D");
         var res = new byte[2];
-        _serial.Read(res, 0, 2);
+        ReadExactly(res, 0, 2);
         Wait();
         return (res[1] << 8) | res[0];
     }
@@ -99,7 +115,7 @@ public class PSoC1Prog : IDisposable
     {
         _serial.Write("F");
         var res = new byte[2];
-        _serial.Read(res, 0, 2);
+        ReadExactly(res, 0, 2);
         Wait();
         return (res[1] << 8) | res[0];
     }
@@ -114,7 +130,7 @@ public class PSoC1Prog : IDisposable
     {
         _serial.Write("C");
         var res = new byte[2];
-        _serial.Read(res, 0, 2);
+        ReadExactly(res, 0, 2);
         Wait();
         return new byte[] { res[1], res[0] };
     }
@@ -147,7 +163,7 @@ public class PSoC1Prog : IDisposable
     {
         _serial.Write("s");
         var blk = new byte[64];
-        _serial.Read(blk, 0, 64);
+        ReadExactly(blk, 0, 64);
         Wait();
         return blk;
     }
